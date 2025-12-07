@@ -1,0 +1,8 @@
+{
+  "name": "AlimentarIA",
+  "description": "A comprehensive health management app featuring AI-powered nutrition tracking, biometric history, and gamified health goals.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
