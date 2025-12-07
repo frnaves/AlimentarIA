@@ -1,3 +1,4 @@
+
 export interface Macros {
   kcal: number;
   p: number; // protein
@@ -85,13 +86,24 @@ export interface BiometricsLog {
   };
 }
 
-export interface Badge {
-  id: string;
-  name: string;
-  description: string;
-  icon: string;
+// --- Gamification V2 Types ---
+
+export interface BadgeTier {
+  level: number; // 1 to 5 (Stars)
+  target: number; // Value needed to unlock (e.g. 3 days)
+  xp_reward: number;
   unlocked: boolean;
   unlockedAt?: string;
+}
+
+export interface Badge {
+  id: string; // e.g., 'water_streak', 'total_logs'
+  category: 'consistency' | 'hydration' | 'strength' | 'diet';
+  name: string;
+  description_template: string; // "Reach {target} days..."
+  icon: string;
+  currentValue: number; // The user's current progress value
+  tiers: BadgeTier[];
 }
 
 export interface CustomChallenge {
@@ -102,9 +114,12 @@ export interface CustomChallenge {
 }
 
 export interface UserStats {
-  streak_days: number;
   total_xp: number;
   current_level: number;
   badges: Badge[];
   custom_challenges: CustomChallenge[];
+  // Internal counters for easier logic
+  streak_days: number;
+  water_streak_days: number;
+  total_logs_count: number;
 }

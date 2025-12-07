@@ -1,3 +1,4 @@
+
 import { UserProfile, Badge, UserStats } from '../types';
 
 export const calculateAge = (birthDate: string): number => {
@@ -49,8 +50,8 @@ export const calculateExerciseCalories = (met: number, weightKg: number, duratio
 };
 
 export const calculateLevel = (xp: number): number => {
-  // Simple progression: Level = 1 + (XP / 100)
-  return Math.floor(xp / 100) + 1;
+  // Simple progression: Level = 1 + (XP / 500) - increased difficulty slightly
+  return Math.floor(xp / 500) + 1;
 };
 
 export const formatDateISO = (date: Date): string => {
@@ -66,12 +67,52 @@ export const getDisplayDate = (isoDate: string): string => {
   return date.toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'long' });
 };
 
-// Initial Badges Configuration
+// --- GAMIFICATION CONFIG ---
+
+const createTiers = (targets: number[], baseXP: number) => {
+    return targets.map((t, idx) => ({
+        level: idx + 1,
+        target: t,
+        xp_reward: baseXP * (idx + 1), // Scaling XP
+        unlocked: false
+    }));
+};
+
 export const INITIAL_BADGES: Badge[] = [
-  { id: 'first_steps', name: 'Primeiros Passos', description: 'Complete seu perfil e onboarding.', icon: '🚀', unlocked: false },
-  { id: 'streak_3', name: 'Aquecimento', description: 'Mantenha o foco por 3 dias seguidos.', icon: '🔥', unlocked: false },
-  { id: 'water_master', name: 'Aquático', description: 'Bata a meta de água por 3 dias.', icon: '💧', unlocked: false },
-  { id: 'logger_10', name: 'Hábito de Ferro', description: 'Registre 10 atividades (refeições/treinos).', icon: '🦾', unlocked: false },
-  { id: 'level_5', name: 'Mestre da Saúde', description: 'Atinja o nível 5.', icon: '👑', unlocked: false },
-  { id: 'weight_goal', name: 'Na Mosca', description: 'Atinja sua meta de peso.', icon: '🎯', unlocked: false },
+  { 
+    id: 'water_streak', 
+    category: 'hydration',
+    name: 'Mestre da Água', 
+    description_template: 'Bata a meta de água por {target} dias.', 
+    icon: '💧', 
+    currentValue: 0,
+    tiers: createTiers([3, 7, 15, 30, 365], 50) // 50, 100, 150... XP
+  },
+  { 
+    id: 'consistency_streak', 
+    category: 'consistency',
+    name: 'Fogo da Consistência', 
+    description_template: 'Use o app por {target} dias seguidos.', 
+    icon: '🔥', 
+    currentValue: 0,
+    tiers: createTiers([3, 7, 15, 30, 365], 100) 
+  },
+  { 
+    id: 'total_logs', 
+    category: 'diet',
+    name: 'Diário de Ferro', 
+    description_template: 'Realize {target} registros totais (refeições/treinos).', 
+    icon: '📝', 
+    currentValue: 0,
+    tiers: createTiers([10, 50, 100, 500, 1000], 20) 
+  },
+  {
+      id: 'level_climber',
+      category: 'consistency',
+      name: 'Evolução Constante',
+      description_template: 'Alcance o nível {target} de usuário.',
+      icon: '👑',
+      currentValue: 1,
+      tiers: createTiers([5, 10, 20, 50, 100], 200)
+  }
 ];

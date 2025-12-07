@@ -1,9 +1,11 @@
+
 import React, { useState } from 'react';
 import { useStore } from '../context/StoreContext';
 import { calculateBMI, calculateExerciseCalories } from '../utils/calculations';
 import { BiometricsLog, Exercise } from '../types';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Plus, Ruler, Dumbbell, Clock, Flame } from 'lucide-react';
+import { Plus, Ruler, Dumbbell, Clock, Flame, ChevronRight, TrendingUp } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -84,6 +86,22 @@ export const Body: React.FC = () => {
                 </button>
               </div>
 
+              {/* Evolution Link Banner */}
+              <Link to="/evolution" className="block bg-gradient-to-r from-indigo-500 to-blue-500 p-4 rounded-xl text-white shadow-lg shadow-indigo-200 group">
+                  <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-3">
+                          <div className="bg-white/20 p-2 rounded-full backdrop-blur-sm">
+                              <TrendingUp size={20} className="text-white" />
+                          </div>
+                          <div>
+                              <h4 className="font-bold text-sm">Ver Evolução Detalhada</h4>
+                              <p className="text-xs text-indigo-100">Gráficos completos de peso e medidas</p>
+                          </div>
+                      </div>
+                      <ChevronRight className="group-hover:translate-x-1 transition-transform" />
+                  </div>
+              </Link>
+
               {showForm && (
                 <form onSubmit={handleSubmit} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 animate-fade-in-down">
                   <div className="grid grid-cols-2 gap-4 mb-4">
@@ -108,23 +126,18 @@ export const Body: React.FC = () => {
                 </form>
               )}
 
-              {/* CHART SECTION */}
-              {chartData.length > 1 ? (
-                <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 h-64">
+              {/* Small Chart Preview */}
+              {chartData.length > 1 && (
+                <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 h-40">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={chartData}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                      <XAxis dataKey="date" tick={{fontSize: 10}} stroke="#9ca3af" />
-                      <YAxis domain={['dataMin - 2', 'dataMax + 2']} tick={{fontSize: 10}} stroke="#9ca3af" width={30} />
+                      <XAxis dataKey="date" hide />
+                      <YAxis domain={['dataMin - 2', 'dataMax + 2']} hide />
                       <Tooltip contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'}} />
-                      <Line type="monotone" dataKey="weight" stroke="#4f46e5" strokeWidth={3} dot={{r: 4}} activeDot={{r: 6}} />
+                      <Line type="monotone" dataKey="weight" stroke="#4f46e5" strokeWidth={3} dot={{r: 3}} />
                     </LineChart>
                   </ResponsiveContainer>
-                </div>
-              ) : (
-                <div className="bg-indigo-50 p-6 rounded-2xl text-center text-indigo-400 border border-indigo-100">
-                  <Ruler className="mx-auto mb-2 opacity-50" size={32} />
-                  <p className="text-xs">Registre seu peso mais de uma vez para ver a evolução gráfica.</p>
                 </div>
               )}
 

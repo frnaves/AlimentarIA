@@ -1,3 +1,4 @@
+
 import React, { useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { StoreProvider, useStore } from './context/StoreContext';
@@ -8,6 +9,7 @@ import { Body } from './pages/Body';
 import { Profile } from './pages/Profile';
 import { Onboarding } from './pages/Onboarding';
 import { Gamification } from './pages/Gamification';
+import { Evolution } from './pages/Evolution';
 
 // Protected Route Component to enforce onboarding
 const ProtectedRoute: React.FC<{ children: React.ReactElement }> = ({ children }) => {
@@ -27,6 +29,7 @@ const AppRoutes = () => {
             <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/nutrition" element={<ProtectedRoute><Nutrition /></ProtectedRoute>} />
             <Route path="/body" element={<ProtectedRoute><Body /></ProtectedRoute>} />
+            <Route path="/evolution" element={<ProtectedRoute><Evolution /></ProtectedRoute>} />
             <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
             <Route path="/gamification" element={<ProtectedRoute><Gamification /></ProtectedRoute>} />
             

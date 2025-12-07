@@ -1,6 +1,7 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { UserProfile, NutritionLog, BiometricsLog, UserStats, Meal, Exercise, Badge, CustomChallenge } from '../types';
-import { formatDateISO, calculateLevel, INITIAL_BADGES, calculateExerciseCalories } from '../utils/calculations';
+import { formatDateISO, calculateLevel, INITIAL_BADGES } from '../utils/calculations';
 
 interface StoreContextType {
   currentDate: string;
@@ -46,11 +47,13 @@ const INITIAL_PROFILE: UserProfile = {
 };
 
 const INITIAL_STATS: UserStats = {
-  streak_days: 0,
   total_xp: 0,
   current_level: 1,
   badges: INITIAL_BADGES,
-  custom_challenges: []
+  custom_challenges: [],
+  streak_days: 0,
+  water_streak_days: 0,
+  total_logs_count: 0
 };
 
 export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -81,39 +84,102 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   useEffect(() => { localStorage.setItem('userProfile', JSON.stringify(userProfile)); }, [userProfile]);
   useEffect(() => { localStorage.setItem('userStats', JSON.stringify(userStats)); }, [userStats]);
 
-  const awardXP = (amount: number) => {
-    setUserStats(prev => {
-      const newXP = prev.total_xp + amount;
-      const newLevel = calculateLevel(newXP);
-      
-      const newBadges = prev.badges.map(b => {
-          if (b.id === 'first_steps' && userProfile.onboarding_completed && !b.unlocked) return { ...b, unlocked: true, unlockedAt: new Date().toISOString() };
-          if (b.id === 'streak_3' && prev.streak_days >= 3 && !b.unlocked) return { ...b, unlocked: true, unlockedAt: new Date().toISOString() };
-          if (b.id === 'logger_10' && prev.total_xp > 100 && !b.unlocked) return { ...b, unlocked: true, unlockedAt: new Date().toISOString() }; // Simplified check
-          if (b.id === 'level_5' && newLevel >= 5 && !b.unlocked) return { ...b, unlocked: true, unlockedAt: new Date().toISOString() };
-          return b;
+  // --- GAMIFICATION LOGIC ---
+
+  const checkBadgeProgress = (currentStats: UserStats, profile: UserProfile): UserStats => {
+      let xpGained = 0;
+      const updatedBadges = currentStats.badges.map(badge => {
+          let progressValue = 0;
+
+          // Determine the metric to check based on badge ID
+          if (badge.id === 'consistency_streak') progressValue = currentStats.streak_days;
+          else if (badge.id === 'water_streak') progressValue = currentStats.water_streak_days;
+          else if (badge.id === 'total_logs') progressValue = currentStats.total_logs_count;
+          else if (badge.id === 'level_climber') progressValue = currentStats.current_level;
+
+          // Check tiers
+          const updatedTiers = badge.tiers.map(tier => {
+              if (!tier.unlocked && progressValue >= tier.target) {
+                  xpGained += tier.xp_reward;
+                  return { ...tier, unlocked: true, unlockedAt: new Date().toISOString() };
+              }
+              return tier;
+          });
+
+          return { ...badge, currentValue: progressValue, tiers: updatedTiers };
       });
 
+      const newXP = currentStats.total_xp + xpGained;
+      const newLevel = calculateLevel(newXP);
+      
       return {
-        ...prev,
-        total_xp: newXP,
-        current_level: newLevel,
-        badges: newBadges
+          ...currentStats,
+          badges: updatedBadges,
+          total_xp: newXP,
+          current_level: newLevel
       };
+  };
+
+  const calculateStreaks = (logs: Record<string, NutritionLog>, waterGoal: number) => {
+      const today = new Date();
+      let streak = 0;
+      let waterStreak = 0;
+      let totalLogs = 0;
+
+      // Count total logs first
+      Object.values(logs).forEach(log => {
+          totalLogs += (log.meals.length + log.exercises.length);
+      });
+
+      // Calculate Streaks (Backwards from today)
+      for (let i = 0; i < 365; i++) {
+          const d = new Date();
+          d.setDate(today.getDate() - i);
+          const iso = formatDateISO(d);
+          const log = logs[iso];
+
+          if (log && (log.meals.length > 0 || log.exercises.length > 0)) {
+              streak++;
+              // Check water for this day
+              if (log.summary.water_intake_ml >= waterGoal) {
+                  waterStreak++;
+              } else if (i === 0 && log.summary.water_intake_ml < waterGoal) {
+                  // If today is not done yet, don't break streak from yesterday
+                  // But don't increment either unless done.
+                  // This is a simplification. Usually we check if 'yesterday' was valid.
+              } else {
+                 // Break water streak
+              }
+          } else {
+             if (i === 0) continue; // If today has no logs yet, don't break streak
+             break;
+          }
+      }
+
+      return { streak, waterStreak, totalLogs };
+  };
+
+  const awardXP = (amount: number) => {
+    setUserStats(prev => {
+        const newXP = prev.total_xp + amount;
+        const newLevel = calculateLevel(newXP);
+        // We re-run badge check whenever XP changes just in case a level badge triggers
+        return checkBadgeProgress({ ...prev, total_xp: newXP, current_level: newLevel }, userProfile);
     });
   };
+
+  // --- ACTIONS ---
 
   const completeOnboarding = (data: Partial<UserProfile>) => {
     const updated = { ...userProfile, ...data, onboarding_completed: true };
     setUserProfile(updated);
-    awardXP(50); // XP for onboarding
+    awardXP(50);
   };
 
   const updateUserProfile = (data: Partial<UserProfile>) => {
     setUserProfile(prev => ({ ...prev, ...data }));
   };
 
-  // Helper to recalculate summary
   const recalculateSummary = (meals: Meal[], water: number) => {
       const totalKcal = meals.reduce((sum, m) => sum + m.items.reduce((s, i) => s + i.macros.kcal, 0), 0);
       const totalProtein = meals.reduce((sum, m) => sum + m.items.reduce((s, i) => s + i.macros.p, 0), 0);
@@ -121,11 +187,13 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   };
 
   const addMeal = (date: string, meal: Meal) => {
+    let newLogs: Record<string, NutritionLog> = {};
+    
     setNutritionLogs(prev => {
       const dayLog = prev[date] || { date, summary: { total_kcal: 0, total_protein: 0, water_intake_ml: 0 }, meals: [], exercises: [] };
       const newMeals = [...dayLog.meals, meal];
       
-      return {
+      newLogs = {
         ...prev,
         [date]: {
           ...dayLog,
@@ -133,24 +201,27 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           summary: recalculateSummary(newMeals, dayLog.summary.water_intake_ml)
         }
       };
+      return newLogs;
     });
-    awardXP(10);
+
+    // Update Stats & Badges
+    const { streak, waterStreak, totalLogs } = calculateStreaks(newLogs, userProfile.daily_water_goal);
+    setUserStats(prev => checkBadgeProgress({ 
+        ...prev, 
+        streak_days: streak, 
+        water_streak_days: waterStreak, 
+        total_logs_count: totalLogs + 1 // +1 for the one just added before state update propagates
+    }, userProfile));
   };
 
   const editMeal = (date: string, updatedMeal: Meal) => {
     setNutritionLogs(prev => {
       const dayLog = prev[date];
       if (!dayLog) return prev;
-
       const newMeals = dayLog.meals.map(m => m.id === updatedMeal.id ? updatedMeal : m);
-
       return {
         ...prev,
-        [date]: {
-          ...dayLog,
-          meals: newMeals,
-          summary: recalculateSummary(newMeals, dayLog.summary.water_intake_ml)
-        }
+        [date]: { ...dayLog, meals: newMeals, summary: recalculateSummary(newMeals, dayLog.summary.water_intake_ml) }
       };
     });
   };
@@ -159,46 +230,56 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setNutritionLogs(prev => {
       const dayLog = prev[date];
       if (!dayLog) return prev;
-
       const newMeals = dayLog.meals.filter(m => m.id !== mealId);
-
       return {
         ...prev,
-        [date]: {
-          ...dayLog,
-          meals: newMeals,
-          summary: recalculateSummary(newMeals, dayLog.summary.water_intake_ml)
-        }
+        [date]: { ...dayLog, meals: newMeals, summary: recalculateSummary(newMeals, dayLog.summary.water_intake_ml) }
       };
     });
   };
 
   const updateWater = (date: string, amount: number) => {
+    let newLogs: Record<string, NutritionLog> = {};
     setNutritionLogs(prev => {
       const dayLog = prev[date] || { date, summary: { total_kcal: 0, total_protein: 0, water_intake_ml: 0 }, meals: [], exercises: [] };
-      return {
+      newLogs = {
         ...prev,
         [date]: {
           ...dayLog,
           summary: { ...dayLog.summary, water_intake_ml: Math.max(0, dayLog.summary.water_intake_ml + amount) }
         }
       };
+      return newLogs;
     });
-    awardXP(5);
+    
+    // Check Water Badge
+    const { streak, waterStreak, totalLogs } = calculateStreaks(newLogs, userProfile.daily_water_goal);
+    setUserStats(prev => checkBadgeProgress({ 
+        ...prev, 
+        streak_days: streak, 
+        water_streak_days: waterStreak,
+        total_logs_count: totalLogs
+    }, userProfile));
   };
 
   const addExercise = (date: string, exercise: Exercise) => {
+    let newLogs: Record<string, NutritionLog> = {};
     setNutritionLogs(prev => {
       const dayLog = prev[date] || { date, summary: { total_kcal: 0, total_protein: 0, water_intake_ml: 0 }, meals: [], exercises: [] };
-      return {
+      newLogs = {
         ...prev,
-        [date]: {
-          ...dayLog,
-          exercises: [...dayLog.exercises, exercise]
-        }
+        [date]: { ...dayLog, exercises: [...dayLog.exercises, exercise] }
       };
+      return newLogs;
     });
-    awardXP(20);
+    
+    const { streak, waterStreak, totalLogs } = calculateStreaks(newLogs, userProfile.daily_water_goal);
+    setUserStats(prev => checkBadgeProgress({ 
+        ...prev, 
+        streak_days: streak, 
+        water_streak_days: waterStreak,
+        total_logs_count: totalLogs
+    }, userProfile));
   };
 
   const addBiometricLog = (log: BiometricsLog) => {
@@ -212,8 +293,6 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     awardXP(30);
   };
 
-  // --- Custom Challenges Logic ---
-  
   const addCustomChallenge = (title: string, xpReward: number) => {
       const newChallenge: CustomChallenge = {
           id: Math.random().toString(36).substr(2, 9),
@@ -231,28 +310,13 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       setUserStats(prev => {
           const challenge = prev.custom_challenges?.find(c => c.id === id);
           if (!challenge || challenge.completed) return prev;
-
-          // Mark as complete
-          const updatedChallenges = prev.custom_challenges.map(c => 
-              c.id === id ? { ...c, completed: true } : c
-          );
-          
-          return {
-              ...prev,
-              custom_challenges: updatedChallenges
-          };
+          const updatedChallenges = prev.custom_challenges.map(c => c.id === id ? { ...c, completed: true } : c);
+          return checkBadgeProgress({ ...prev, custom_challenges: updatedChallenges, total_xp: prev.total_xp + challenge.xp_reward }, userProfile);
       });
-      
-      // Award XP separately to trigger level calculation
-      const challenge = userStats.custom_challenges?.find(c => c.id === id);
-      if (challenge) awardXP(challenge.xp_reward);
   };
 
   const deleteCustomChallenge = (id: string) => {
-      setUserStats(prev => ({
-          ...prev,
-          custom_challenges: prev.custom_challenges?.filter(c => c.id !== id) || []
-      }));
+      setUserStats(prev => ({ ...prev, custom_challenges: prev.custom_challenges?.filter(c => c.id !== id) || [] }));
   };
 
   return (
