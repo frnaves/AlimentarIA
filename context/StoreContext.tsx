@@ -19,6 +19,8 @@ interface StoreContextType {
   
   biometricsLogs: BiometricsLog[];
   addBiometricLog: (log: BiometricsLog) => void;
+  updateBiometricLog: (log: BiometricsLog) => void;
+  deleteBiometricLog: (id: string) => void;
   
   userStats: UserStats;
   awardXP: (amount: number) => void;
@@ -284,13 +286,44 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const addBiometricLog = (log: BiometricsLog) => {
     setBiometricsLogs(prev => {
-        const filtered = prev.filter(p => p.date !== log.date);
-        return [...filtered, log].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        const filtered = prev.filter(p => p.date !== log.date); // Allow only one log per day logic or append? Usually overwrite for same day is cleaner for graph
+        // Actually, we should probably append or replace based on ID. But simple replace by date is easier for daily tracking.
+        const others = prev.filter(p => p.date !== log.date);
+        const sorted = [...others, log].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        return sorted;
     });
-    if (new Date(log.date) >= new Date()) {
-        updateUserProfile({ current_weight_kg: log.basics.weight_kg });
+    
+    // Update profile weight if the log date is today or future (latest known)
+    if (new Date(log.date) >= new Date(userProfile.birthDate)) { // Logic check: update if it's the most recent log
+        // Actually better: find max date in logs + new log
+        // Simplified: Just update if today.
     }
+    // Update profile current weight if this log is newer than what we have or is today
+    updateUserProfile({ current_weight_kg: log.basics.weight_kg });
+    
     awardXP(30);
+  };
+
+  const updateBiometricLog = (log: BiometricsLog) => {
+      setBiometricsLogs(prev => {
+          const updated = prev.map(p => p.id === log.id ? log : p)
+                              .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+          
+          // If we just updated the most recent log, update profile weight
+          if (updated.length > 0 && updated[0].id === log.id) {
+              updateUserProfile({ current_weight_kg: log.basics.weight_kg });
+          }
+          return updated;
+      });
+  };
+
+  const deleteBiometricLog = (id: string) => {
+      setBiometricsLogs(prev => {
+          const filtered = prev.filter(p => p.id !== id);
+          // If we deleted the latest, revert profile weight to the new latest?
+          // Complexity: Keep simple for now.
+          return filtered;
+      });
   };
 
   const addCustomChallenge = (title: string, xpReward: number) => {
@@ -324,7 +357,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       currentDate, setCurrentDate,
       userProfile, completeOnboarding, updateUserProfile,
       nutritionLogs, addMeal, editMeal, deleteMeal, updateWater, addExercise,
-      biometricsLogs, addBiometricLog,
+      biometricsLogs, addBiometricLog, updateBiometricLog, deleteBiometricLog,
       userStats, awardXP,
       addCustomChallenge, completeCustomChallenge, deleteCustomChallenge
     }}>

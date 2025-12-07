@@ -73,7 +73,7 @@ export const Profile: React.FC = () => {
         </div>
       </div>
       
-      <p className="text-center text-xs text-gray-400 mt-8">Versão 2.1.0 • HealthIntegral</p>
+      <p className="text-center text-xs text-gray-400 mt-8">Versão 2.2.0 • AlimentarIA</p>
     </div>
   );
 };

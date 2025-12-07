@@ -1,6 +1,6 @@
 {
   "name": "AlimentarIA",
-  "description": "A comprehensive health management app featuring AI-powered nutrition tracking, biometric history, and gamified health goals.",
+  "description": "Seu assistente de nutrição inteligente. Conectando saúde, alimentação e tecnologia.",
   "requestFramePermissions": [
     "camera",
     "microphone"

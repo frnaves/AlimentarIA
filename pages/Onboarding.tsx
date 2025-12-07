@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useStore } from '../context/StoreContext';
 import { calculateTMB, calculateDailyCalories, calculateWaterGoal, calculateAge } from '../utils/calculations';
 import { ChevronRight, Ruler, Activity, Target } from 'lucide-react';
+import { Logo } from '../components/Logo';
 
 export const Onboarding: React.FC = () => {
   const { completeOnboarding } = useStore();
@@ -101,10 +102,10 @@ export const Onboarding: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-emerald-600">HealthIntegral</h1>
-        <p className="text-gray-500">Configuração Inicial do seu Plano</p>
+    <div className="space-y-6 animate-fade-in">
+      <div className="text-center mb-8 pt-4">
+        <Logo size="lg" showTagline={true} />
+        <p className="text-gray-500 mt-4 text-sm">Configuração Inicial do seu Plano</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -236,7 +237,7 @@ export const Onboarding: React.FC = () => {
           </div>
         </section>
 
-        <button type="submit" className="w-full bg-emerald-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-emerald-700 shadow-lg shadow-emerald-200 flex items-center justify-center gap-2">
+        <button type="submit" className="w-full bg-emerald-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-emerald-700 shadow-lg shadow-emerald-200 flex items-center justify-center gap-2 transition-transform active:scale-95">
           Gerar Meu Plano
           <ChevronRight />
         </button>
